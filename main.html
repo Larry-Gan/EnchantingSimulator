@@ -65,7 +65,7 @@
 <script>
 /* ========================== Globals & Utilities ========================== */
 let ENCHANTS=[], AUGMENTS=[], AUGMENTS_BY_NAME={};
-let selectedSlots=0, currentEnchantments=[], totalDustUsed=0;
+let selectedSlots=0, currentEnchantments=[], totalDustUsed=0, totalRolls=0;
 const BASE_DUST={1:50,2:65,3:80,4:100};
 
 function normalizeName(s){
@@ -81,61 +81,42 @@ function nameMultiplierLookup(dict, enchantName){
 function prettyStat(s){ return s.charAt(0)+s.slice(1).toLowerCase(); }
 
 /* ========================== Awakening Maps ========================== */
-const AWAKENING_MAP = {
-  "Ancient's Blessing": ["Tomb rings"],
-  "Ancient Artifacts": ["Snakeskin Armor"],
-  "Apitoxin": ["Doku No Ken"],
-  "Artificial Core": ["Staff of Extreme Prejudice"],
-  "Bone Claws": ["Bone Dagger"],
-  "Buzzing Bullets": ["Queen's Stinger"],
-  "Crystalline Channel": ["Staff of the Crystal Serpent"],
-  "Crystal Shards": ["Crystal Wand"],
-  "Draconic Gaze": ["Snake Eye Ring"],
-  "Drake Warden": ["LoD Armors"],
-  "El Dorado's Legacy": ["Crystal Bone Ring"],
-  "Eye of the Spider": ["Spider's Eye Ring"],
-  "Fractured Blade": ["Crystal Sword"],
-  "Hellfire Edge": ["Demon Blade"],
-  "High Voltage": ["Conducting Wand"],
-  "Infernal Anger": ["Berserker's Breastplate"],
-  "Kogbold Spirit": ["Overclocking Amulet"],
-  "Living Hive": ["Bee Armors"],
-  "Masked God's Dance": ["Robe of the Tlatoani"],
-  "Molecular Blade": ["Pirate King's Cutlass"],
-  "Necrotic Knowledge": ["Ring of Skeletal Specters"],
-  "Night's Soul": ["Circlet & Oryx Rings"],
-  "Night's Strength": ["Oryx Weapons"],
-  "Night's Tenacity": ["Oryx Armors"],
-  "Night's Wisdom": ["Oryx Abilities"],
-  "Raijin's Dance": ["Tlatoani's Shroud"],
-  "Soulful Mastery": ["Doom Bow"],
-  "Swarm Tree's Wrath": ["Leaf Bow"],
-  "The King's Treasure": ["Corsair Ring"],
-  "Thornswarm": ["Bramble Bow"],
-  "Venom Coating": ["Poison Fang Dagger"]
-};
-const AWAKEN_ITEM_TYPE = {
-  "Tomb rings":"RING","Snakeskin Armor":"ARMOR","Doku No Ken":"WEAPON",
-  "Staff of Extreme Prejudice":"WEAPON","Bone Dagger":"WEAPON",
-  "Queen's Stinger":"WEAPON","Staff of the Crystal Serpent":"WEAPON",
-  "Crystal Wand":"WEAPON","Snake Eye Ring":"RING","LoD Armors":"ARMOR",
-  "Crystal Bone Ring":"RING","Spider's Eye Ring":"RING","Crystal Sword":"WEAPON",
-  "Demon Blade":"WEAPON","Conducting Wand":"WEAPON","Berserker's Breastplate":"ARMOR",
-  "Overclocking Amulet":"RING","Bee Armors":"ARMOR","Robe of the Tlatoani":"ARMOR",
-  "Pirate King's Cutlass":"WEAPON","Ring of Skeletal Specters":"RING",
-  "Circlet & Oryx Rings":"RING","Oryx Weapons":"WEAPON","Oryx Armors":"ARMOR",
-  "Oryx Abilities":"ABILITY","Tlatoani's Shroud":"ARMOR","Doom Bow":"WEAPON",
-  "Leaf Bow":"WEAPON","Corsair Ring":"RING","Bramble Bow":"WEAPON","Poison Fang Dagger":"WEAPON"
-};
-let AWAKENABLE_ITEMS=[], chosenAwakenItem="";
+let AWAKENING_MAP = {};
+let AWAKEN_ITEM_TYPE = {};
+let AWAKENABLE_ITEMS=[], AWAKENABLE_BY_TYPE={}, chosenAwakenItem="";
+
+function getFilteredAwakenItems(){
+  const it=(document.getElementById('itemType')?.value||'').toUpperCase();
+  if(!it) return AWAKENABLE_ITEMS.slice();
+  return (AWAKENABLE_BY_TYPE[it]||[]).slice();
+}
+function refreshAwakenOptions(){
+  const dl=document.getElementById('awakenList');
+  if(!dl) return;
+  const list=getFilteredAwakenItems();
+  window.AWAKENABLE_ITEMS_FILTERED=list;
+  dl.innerHTML='';
+  list.forEach(n=>{ const opt=document.createElement('option'); opt.value=n; dl.appendChild(opt); });
+
+  const box=document.getElementById('awakenItem');
+  const it=(document.getElementById('itemType')?.value||'').toUpperCase();
+  if(box){
+    const v=box.value.trim();
+    if(v && it && AWAKEN_ITEM_TYPE[v]!==it){
+      box.value='';
+      chosenAwakenItem='';
+    }
+  }
+}
 
 /* ========================== Init ========================== */
 window.addEventListener('DOMContentLoaded',()=>{
   renderSlotButtons();
   bindEvents();
-  buildAwakenList();
+  updateDustDisplay();
   (async()=>{
-    await Promise.all([loadEnchantments(), loadAugments()]);
+    await Promise.all([loadEnchantments(), loadAugments(), loadAwakeningData()]);
+    buildAwakenList();
     normalizeAllData();
     populateAugmentDropdown();
     refreshEligibility();
@@ -159,6 +140,19 @@ async function loadAugments(){
     AUGMENTS_BY_NAME={}; AUGMENTS.forEach(x=>AUGMENTS_BY_NAME[x.name]=x);
     window.__RAW_ARTS=artifacts; window.__RAW_ENVS=engravings;
   }catch(e){ console.error(e); AUGMENTS=[]; AUGMENTS_BY_NAME={}; }
+}
+async function loadAwakeningData(){
+  try{
+    const response = await fetch('awakening-map.json');
+    if(!response.ok) throw new Error('awakening-map.json load failed');
+    const payload = await response.json();
+    AWAKENING_MAP = payload.awakeningMap || {};
+    AWAKEN_ITEM_TYPE = payload.awakenItemType || {};
+  }catch(e){
+    console.error(e);
+    AWAKENING_MAP = {};
+    AWAKEN_ITEM_TYPE = {};
+  }
 }
 function normalizeAllData(){
   const up=a=>(a||[]).map(x=>String(x).toUpperCase());
@@ -193,8 +187,16 @@ function buildAwakenList(){
   const set=new Set();
   for(const arr of Object.values(AWAKENING_MAP)){ (arr||[]).forEach(n=>set.add(n)); }
   AWAKENABLE_ITEMS = Array.from(set).sort();
-  const dl=document.getElementById('awakenList'); dl.innerHTML='';
-  AWAKENABLE_ITEMS.forEach(n=>{ const opt=document.createElement('option'); opt.value=n; dl.appendChild(opt); });
+  AWAKENABLE_BY_TYPE = {};
+  for(const [name,type] of Object.entries(AWAKEN_ITEM_TYPE||{})){
+    const t=String(type||'').toUpperCase();
+    if(!t) continue;
+    if(!AWAKENABLE_BY_TYPE[t]) AWAKENABLE_BY_TYPE[t]=[];
+    AWAKENABLE_BY_TYPE[t].push(name);
+  }
+  for(const t of Object.keys(AWAKENABLE_BY_TYPE)) AWAKENABLE_BY_TYPE[t].sort();
+  window.AWAKENABLE_ITEMS = AWAKENABLE_ITEMS;
+  refreshAwakenOptions();
   const chk=document.getElementById('canAwaken');
   const box=document.getElementById('awakenItem');
   chk.onchange=()=>{
@@ -229,12 +231,154 @@ function renderSlots(){
   for(let i=0;i<selectedSlots;i++){
     const d=document.createElement('div'); d.className='slot';
     const info=document.createElement('div'); info.textContent='Empty Slot';
-    const lock=document.createElement('button'); lock.className='lock-toggle'; lock.textContent='Lock';
-    lock.onclick=()=>{lock.classList.toggle('locked');lock.textContent=lock.classList.contains('locked')?'Locked':'Lock';};
-    d.appendChild(lock); d.appendChild(info);
+    const lock=document.createElement('button'); lock.className='lock-toggle'; lock.textContent='Lock'; lock.type='button';
+
+    const picker=document.createElement('div');
+    picker.className='slot-picker';
+    picker.style.display='none';
+
+    const pickerInput=document.createElement('input');
+    pickerInput.type='text';
+    pickerInput.placeholder='Type enchantment name...';
+    pickerInput.className='slot-picker-input';
+
+    const pickerList=document.createElement('div');
+    pickerList.className='suggest-box slot-suggest';
+
+    const pickerActions=document.createElement('div');
+    pickerActions.className='slot-picker-actions';
+
+    const clearBtn=document.createElement('button');
+    clearBtn.type='button';
+    clearBtn.className='small ghost';
+    clearBtn.textContent='Clear';
+
+    const closeBtn=document.createElement('button');
+    closeBtn.type='button';
+    closeBtn.className='small ghost';
+    closeBtn.textContent='Close';
+
+    pickerActions.appendChild(clearBtn);
+    pickerActions.appendChild(closeBtn);
+    picker.appendChild(pickerInput);
+    picker.appendChild(pickerList);
+    picker.appendChild(pickerActions);
+
+    const slotState={enchant:null,element:info,lockBtn:lock,picker,pickerInput,pickerList,slotEl:d};
+
+    lock.onclick=(ev)=>{
+      ev.stopPropagation();
+      const willLock=!lock.classList.contains('locked');
+      setSlotLocked(slotState, willLock);
+    };
+    picker.onclick=(ev)=>ev.stopPropagation();
+    clearBtn.onclick=(ev)=>{
+      ev.stopPropagation();
+      slotState.enchant=null;
+      renderSlotEnchant(slotState);
+      setSlotLocked(slotState,false);
+      closeAllSlotPickers();
+      updateWeightDebug();
+    };
+    closeBtn.onclick=(ev)=>{ ev.stopPropagation(); closeAllSlotPickers(); };
+    pickerInput.addEventListener('input',()=>renderSlotSuggestions(i,pickerInput.value));
+    pickerInput.addEventListener('keydown',(ev)=>{
+      if(ev.key==='Escape'){ ev.preventDefault(); closeAllSlotPickers(); }
+    });
+    d.onclick=(ev)=>{
+      if(ev.target.closest('.lock-toggle') || ev.target.closest('.slot-picker')) return;
+      openSlotPicker(i);
+    };
+
+    d.appendChild(lock);
+    d.appendChild(info);
+    d.appendChild(picker);
     c.appendChild(d);
-    currentEnchantments.push({enchant:null,element:info,lockBtn:lock});
+    currentEnchantments.push(slotState);
   }
+}
+
+function setSlotLocked(slot, locked){
+  slot.lockBtn.classList.toggle('locked', !!locked);
+  slot.lockBtn.textContent=locked?'Locked':'Lock';
+}
+function renderSlotEnchant(slot){
+  if(!slot.enchant){ slot.element.textContent='Empty Slot'; return; }
+  const pick=slot.enchant;
+  slot.element.innerHTML=`${pick.name}<br><span class='muted'>${pick.description||''}</span>`;
+}
+function getLockedEnchants(){
+  return currentEnchantments
+    .filter(s=>s.lockBtn.classList.contains('locked') && s.enchant)
+    .map(s=>s.enchant);
+}
+function getOtherChosenEnchants(slotIndex){
+  return currentEnchantments
+    .filter((s,idx)=>idx!==slotIndex && s.enchant)
+    .map(s=>s.enchant);
+}
+function getEligiblePoolForSlot(slotIndex){
+  const it=document.getElementById('itemType').value;
+  if(!it) return [];
+  return getCurrentPool(it,true)
+    .filter(e=>e.weight>0);
+}
+function filterEnchantsByQuery(pool, query){
+  const q=(query||'').trim().toLowerCase();
+  if(!q) return pool.slice();
+  const terms=q.split(/\s+/).filter(Boolean);
+  return pool.filter(e=>terms.every(t=>e.name.toLowerCase().includes(t)));
+}
+function closeAllSlotPickers(){
+  for(const s of currentEnchantments){
+    if(!s.picker) continue;
+    s.picker.style.display='none';
+    s.pickerList.innerHTML='';
+  }
+}
+function chooseEnchantForSlot(slotIndex, enchant){
+  const slot=currentEnchantments[slotIndex];
+  if(!slot) return;
+  slot.enchant=enchant;
+  renderSlotEnchant(slot);
+  setSlotLocked(slot,true);
+  closeAllSlotPickers();
+  enforceLockValidity();
+  updateWeightDebug();
+}
+function renderSlotSuggestions(slotIndex, query){
+  const slot=currentEnchantments[slotIndex];
+  if(!slot) return;
+  const pool=getEligiblePoolForSlot(slotIndex);
+  const others=getOtherChosenEnchants(slotIndex);
+  const matches=filterEnchantsByQuery(pool, query).slice(0,30);
+  slot.pickerList.innerHTML='';
+  if(!matches.length){
+    const none=document.createElement('div');
+    none.className='suggest-item disabled';
+    none.textContent='No eligible enchantments';
+    slot.pickerList.appendChild(none);
+    return;
+  }
+  for(const e of matches){
+    const available=isCompatible(e,others);
+    const row=document.createElement('div');
+    row.className=available?'suggest-item':'suggest-item disabled';
+    row.innerHTML=`<div>${e.name}</div><div class='suggest-note'>${available ? `Weight: ${Math.round(e.weight).toLocaleString()}` : 'Not compatible with current slots'}</div>`;
+    if(available) row.onclick=()=>chooseEnchantForSlot(slotIndex,e);
+    slot.pickerList.appendChild(row);
+  }
+}
+function openSlotPicker(slotIndex){
+  const it=document.getElementById('itemType').value;
+  if(!it){ alert('Select an item type first'); return; }
+  const slot=currentEnchantments[slotIndex];
+  if(!slot) return;
+  closeAllSlotPickers();
+  slot.picker.style.display='block';
+  slot.pickerInput.value='';
+  renderSlotSuggestions(slotIndex,'');
+  slot.pickerInput.focus();
 }
 
 /* ========================== UI: Augment dropdown + info ========================== */
@@ -450,7 +594,7 @@ function rollEnchantments(){
   const it=document.getElementById('itemType').value;
   if(!it){alert('Select an item type first');return;}
   if(selectedSlots===0){alert('Select slot count');return;}
-  let pool=getCurrentPool(it,true);
+  let pool=getCurrentPool(it,true).filter(e=>e.weight>0);
   
 
   // Dust
@@ -460,6 +604,7 @@ function rollEnchantments(){
   const augCost=AUGMENTS_BY_NAME[augName]?.cost||0;
   const dust=(baseDust+augCost)*Math.pow(2,lockedCount);
   totalDustUsed+=dust;
+  totalRolls+=1;
   updateDustDisplay(`+${dust} dust this roll`);
 
   // Roll unlocked slots respecting incompatibilities
@@ -467,10 +612,10 @@ function rollEnchantments(){
   for(const slot of currentEnchantments){
     if(slot.lockBtn.classList.contains('locked')&&slot.enchant) continue;
     const valid=pool.filter(e=>isCompatible(e,taken));
-    if(!valid.length){slot.enchant=null;slot.element.textContent='Empty Slot';continue;}
+    if(!valid.length){slot.enchant=null;renderSlotEnchant(slot);continue;}
     const pick=weightedPick(valid);
     slot.enchant=pick;
-    slot.element.innerHTML=`${pick.name}<br><span class='muted'>${pick.description||''}</span>`;
+    renderSlotEnchant(slot);
     taken.push(pick);
   }
   enforceLockValidity();
@@ -485,11 +630,11 @@ function calculateProbability(){
   let pool=getCurrentPool(it,true);
   
 
-  const locked=currentEnchantments.filter(s=>s.lockBtn.classList.contains('locked')&&s.enchant).map(s=>s.enchant);
+  const locked=getLockedEnchants();
   pool=pool.filter(e=>isCompatible(e,locked));
 
   const target=pool.find(e=>normalizeName(e.name)===normalizeName(q));
-  if(!target){ out.innerHTML=`<b>${q}</b><br>Chance: 0% (Incompatible or not in pool)`; return; }
+  if(!target){ out.innerHTML=`<b>${q}</b><br>Chance: 0% (Not available with current locked selection)`; return; }
 
   const total=pool.reduce((a,b)=>a+b.weight,0);
   const p = target.weight/total;
@@ -509,17 +654,38 @@ function calculateProbability(){
 /* ========================== Validity, Dust & Breakdown ========================== */
 function enforceLockValidity(){
   const it=document.getElementById('itemType').value;
-  const pool=getCurrentPool(it,true);
-  const validNames=new Set(pool.map(e=>e.name));
-  for(const s of currentEnchantments){
-    if(s.enchant && !validNames.has(s.enchant.name)){
-      s.enchant=null; s.element.textContent='Empty Slot';
-      s.lockBtn.classList.remove('locked'); s.lockBtn.textContent='Lock';
+  const poolMap=new Map(getCurrentPool(it,true).filter(e=>e.weight>0).map(e=>[e.name,e]));
+  const order=currentEnchantments.map((_,i)=>i).sort((a,b)=>{
+    const aLocked=currentEnchantments[a].lockBtn.classList.contains('locked')?0:1;
+    const bLocked=currentEnchantments[b].lockBtn.classList.contains('locked')?0:1;
+    return aLocked-bLocked || a-b;
+  });
+
+  const keep=new Set();
+  const taken=[];
+  for(const idx of order){
+    const slot=currentEnchantments[idx];
+    if(!slot.enchant) continue;
+    const updated=poolMap.get(slot.enchant.name);
+    if(!updated) continue;
+    if(!isCompatible(updated,taken)) continue;
+    slot.enchant=updated;
+    keep.add(idx);
+    taken.push(updated);
+  }
+
+  for(let i=0;i<currentEnchantments.length;i++){
+    const s=currentEnchantments[i];
+    if(!s.enchant) continue;
+    if(!keep.has(i)){
+      s.enchant=null;
+      setSlotLocked(s,false);
     }
+    renderSlotEnchant(s);
   }
 }
 function updateDustDisplay(msg){
-  document.getElementById('dustDisplay').textContent=`Total Dust Used: ${totalDustUsed}`;
+  document.getElementById('dustDisplay').textContent=`Total Dust Used: ${totalDustUsed} | Rolls: ${totalRolls}`;
   const d=document.getElementById('rollDelta');
   if(msg){ d.textContent=msg; d.classList.add('show'); setTimeout(()=>d.classList.remove('show'),1500); }
 }
@@ -580,9 +746,10 @@ function getSelectedAugment(){
 }
 function bindEvents(){
   document.getElementById('rollBtn').onclick=rollEnchantments;
-  document.getElementById('resetDust').onclick=()=>{totalDustUsed=0;updateDustDisplay();};
-  document.getElementById('itemType').onchange=()=>{refreshEligibility();enforceLockValidity();updateWeightDebug();};
+  document.getElementById('resetDust').onclick=()=>{totalDustUsed=0;totalRolls=0;updateDustDisplay();};
+  document.getElementById('itemType').onchange=()=>{refreshAwakenOptions();refreshEligibility();enforceLockValidity();updateWeightDebug();};
   document.getElementById('calcProbBtn').onclick=calculateProbability;
+  document.addEventListener('click',(ev)=>{ if(!ev.target.closest('.slot')) closeAllSlotPickers(); });
   // Initialize Weight Breakdown collapsed by default
 const det = document.getElementById('weightDetails');
 det.style.display = 'none';
@@ -634,30 +801,39 @@ function refreshEligibility(){
 
     const itemType = document.getElementById('itemType').value;
     const eligible = eligiblePool(itemType);
+    const locked = getLockedEnchants();
 
     // Split search terms into words, match if all appear in enchant name (order-insensitive)
     const terms = query.split(/\s+/).filter(Boolean);
     const matches = eligible.filter(e => {
       const name = e.name.toLowerCase();
       return terms.every(t => name.includes(t));
-    }).slice(0, 15);
+    }).map(e=>({
+      enchant:e,
+      available:isCompatible(e,locked)
+    }))
+      .slice(0, 20);
 
     if (!matches.length) return;
 
-    matches.forEach(e => {
+    matches.forEach(({enchant,available}) => {
       const div = document.createElement('div');
-      div.className = 'suggest-item';
-      div.innerHTML = highlightMatch(e.name, terms);
-      div.onclick = () => {
-        input.value = e.name;
-        suggestionsBox.innerHTML = '';
-      };
+      div.className = available ? 'suggest-item' : 'suggest-item disabled';
+      div.dataset.selectable = available ? '1' : '0';
+      div.dataset.value = enchant.name;
+      div.innerHTML = `<div>${highlightMatch(enchant.name, terms)}</div>${available ? '' : "<div class='suggest-note'>Not available with current selection</div>"}`;
+      if(available){
+        div.onclick = () => {
+          input.value = enchant.name;
+          suggestionsBox.innerHTML = '';
+        };
+      }
       suggestionsBox.appendChild(div);
     });
   });
 
   input.addEventListener('keydown', e => {
-    const items = Array.from(suggestionsBox.children);
+    const items = Array.from(suggestionsBox.querySelectorAll('.suggest-item[data-selectable="1"]'));
     if (!items.length) return;
 
     if (e.key === 'ArrowDown') {
@@ -670,7 +846,7 @@ function refreshEligibility(){
       e.preventDefault();
     } else if (e.key === 'Enter' && activeIndex >= 0) {
       e.preventDefault();
-      input.value = items[activeIndex].textContent;
+      input.value = items[activeIndex].dataset.value || items[activeIndex].textContent;
       suggestionsBox.innerHTML = '';
     }
   });
@@ -680,8 +856,10 @@ function refreshEligibility(){
   });
 
   function updateActive(items) {
+    const all = Array.from(suggestionsBox.children);
+    all.forEach(el=>{ el.style.background=''; });
     items.forEach((el, i) => {
-      el.style.background = i === activeIndex ? '#333' : '';
+      if(i===activeIndex) el.style.background = '#333';
     });
   }
 
@@ -695,57 +873,6 @@ function refreshEligibility(){
   }
 })();
 
-
-// === Enhanced Awaken Normalization & Pool Handling (v9) ===
-function normalizeName(name) {
-  return name
-    ? name.toLowerCase()
-      .replace(/&#39;/g, "'")
-      .replace(/[’‘]/g, "'")
-      .replace(/\s+/g, ' ')
-      .trim()
-    : "";
-}
-
-// Normalize AWAKENING_MAP keys globally
-if (typeof AWAKENING_MAP !== 'undefined') {
-  const fixed = {};
-  for (const [k, v] of Object.entries(AWAKENING_MAP)) {
-    fixed[normalizeName(k)] = v.map(x => normalizeName(x));
-  }
-  AWAKENING_MAP = fixed;
-}
-
-// Rebuild awaken enchant pool when user picks item
-function rebuildAwakenPoolIfNeeded() {
-  if (!window.currentAwakenItem) return;
-  const chosen = normalizeName(window.currentAwakenItem);
-  const allAwakened = Object.entries(AWAKENING_MAP)
-    .filter(([enchant, items]) => items.includes(chosen))
-    .map(([enchant]) => enchant);
-
-  if (Array.isArray(window.enchants)) {
-    window.enchants.forEach(e => {
-      const n = normalizeName(e.name);
-      e._isAwakenedEligible = allAwakened.includes(n);
-    });
-  }
-}
-
-// Hook item selection
-if (typeof setupAwakenDropdown === 'function') {
-  const oldSetup = setupAwakenDropdown;
-  setupAwakenDropdown = function(...args) {
-    oldSetup.apply(this, args);
-    const dropdown = document.getElementById('awakenItemDropdown');
-    if (dropdown) {
-      dropdown.addEventListener('change', ev => {
-        window.currentAwakenItem = ev.target.value;
-        rebuildAwakenPoolIfNeeded();
-      });
-    }
-  };
-}
 
 </script>
 <script>
@@ -789,7 +916,7 @@ if (typeof setupAwakenDropdown === 'function') {
 
     if (!q) return;
 
-    const list = (window.AWAKENABLE_ITEMS || []);
+    const list = (window.AWAKENABLE_ITEMS_FILTERED || window.AWAKENABLE_ITEMS || []);
     const matches = list.filter(name => name.toLowerCase().includes(q)).slice(0, 15);
     if (!matches.length) return;
 

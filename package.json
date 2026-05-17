@@ -1,0 +1,14 @@
+{
+  "name": "enchanting-simulator-data-sync",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "sync:data": "node scripts/sync-data.mjs"
+  },
+  "dependencies": {
+    "csv-parse": "^5.5.6"
+  }
+}

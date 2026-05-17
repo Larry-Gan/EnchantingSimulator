@@ -30,8 +30,11 @@
     #targetEnchantInput{ flex:1; min-width:260px; max-width:480px; font-size:14px; padding:8px; border-radius:8px; border:none; }
     #suggestions{ position:relative; flex:1; max-width:480px; }
     .suggest-box{ position:absolute; background:var(--card); border:1px solid var(--border); border-radius:6px; max-height:220px; overflow-y:auto; z-index:10; width:100%; box-shadow:0 0 8px rgba(0,0,0,0.45); }
-    .suggest-item{ padding:6px 8px; cursor:pointer; font-size:13px; }
-    .suggest-item:hover{ background:#333; }
+.suggest-item{ padding:6px 8px; cursor:pointer; font-size:13px; }
+.suggest-item:hover{ background:#333; }
+.suggest-item.disabled{ opacity:.55; cursor:not-allowed; }
+.suggest-item.disabled:hover{ background:transparent; }
+.suggest-note{ font-size:11px; color:var(--muted); margin-top:2px; }
 
     .toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
     #weightDetails{ display:none; margin-top:8px; background:var(--panel); border-radius:10px; padding:10px; }
@@ -149,6 +152,41 @@ select:hover, input:hover {
   flex-direction: column;
   box-sizing: border-box;
 }
+.slot-picker{
+  position:absolute;
+  left:8px;
+  right:8px;
+  top:34px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px;
+  z-index:20;
+  box-shadow:0 8px 18px rgba(0,0,0,0.45);
+}
+.slot-picker-input{
+  width:100%;
+  margin:0 0 6px 0;
+  padding:8px;
+  box-sizing:border-box;
+}
+.slot-suggest{
+  position:relative;
+  max-height:180px;
+  overflow-y:auto;
+  margin-bottom:6px;
+}
+.slot-picker-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:6px;
+}
+button.ghost{
+  background:#2a2a2a;
+  color:var(--ink);
+  margin:0;
+}
+button.ghost:hover{ background:#3a3a3a; }
 .lock-toggle {
   position: absolute !important;
   top: 6px !important;
