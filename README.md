@@ -1,6 +1,7 @@
 # Enchanting Simulator Data Sync
 
-This project is a static simulator (`main.html` + `style.css` + JSON data files).
+This project is a static simulator (`main.html` + `style.css` + JSON data files),
+with `index.html` redirecting to `main.html` for root URL hosting compatibility.
 Because the page loads JSON files via `fetch(...)`, run it through a local HTTP server (not `file://`).
 
 ## Data model
@@ -28,7 +29,8 @@ npm run sync:data
 npx serve .
 ```
 
-Then open the URL shown in the terminal (commonly `http://localhost:3000`) and load `main.html` if it does not open automatically.
+Then open the URL shown in the terminal (commonly `http://localhost:3000`).
+You can use either the root URL or `http://localhost:3000/main.html`.
 
 Alternative (Python):
 
@@ -36,7 +38,7 @@ Alternative (Python):
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000/main.html`.
+Then open `http://localhost:8000/` (or `http://localhost:8000/main.html`).
 
 ## Source of truth
 
