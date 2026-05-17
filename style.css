@@ -41,10 +41,13 @@
 
     .awaken-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .inline{ display:inline-flex; align-items:center; gap:8px; }
+    .reroll-dust-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:6px 6px 0; }
+    .reroll-dust-row label{ font-size:13px; color:var(--muted); }
+    .reroll-dust-row select{ margin:0; min-width:150px; }
     datalist option{ color:#000; }
     #awakenItem{ min-width:260px; max-width:480px; }
-    #rollDelta{ color:#ffd54f; font-size:12px; margin-left:8px; opacity:0; transition:opacity .4s ease; }
-    #rollDelta.show{ opacity:1; }
+    #costPreview{ display:block; color:#ffd54f; font-size:12px; margin:0 0 2px 10px; }
+    #dustDisplay{ display:block; margin-left:10px; }
 
     pre{ white-space:pre-wrap; word-break:break-word; }
   
@@ -60,13 +63,17 @@ button:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
+#rollBtn:hover,
+#resetDust:hover {
+  transform: none;
+}
 select:hover, input:hover {
   background: #2a2a2a;
   box-shadow: 0 0 6px rgba(0,188,212,0.3);
 }
 .slot:hover {
   transform: scale(1.02);
-  box-shadow: 0 0 12px rgba(0,188,212,0.2);
+  box-shadow: 0 0 12px var(--slot-glow-color, rgba(0,188,212,0.2));
 }
 
 /* Probability row alignment */
@@ -271,3 +278,17 @@ button.ghost:hover{ background:#3a3a3a; }
 /* Maintain smooth hover/focus like inputs */
 #awakenItem:hover { background: #2a2a2a; box-shadow: 0 0 6px rgba(0,188,212,0.3); }
 #awakenItem:focus { outline: none; box-shadow: 0 0 8px rgba(0,188,212,0.4); }
+
+/* Enchant tint classes */
+.enchant-awakened{ color:#bc4a4a; }
+.enchant-unique{ color:#ba8cff; }
+.enchant-frost{ color:#69e8ff; }
+.enchant-stat{ color:#7fd487; }
+.enchant-loot{ color:#ffd95c; }
+.enchant-blue{ color:#6eb8ff; }
+.enchant-offense{ color:#ff8a5f; }
+
+/* Dust tint classes */
+.dust-green{ color:#7cd88b !important; }
+.dust-red{ color:#ff8f8f !important; }
+.dust-purple{ color:#c6a6ff !important; }
